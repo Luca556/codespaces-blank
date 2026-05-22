@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Royal Rush FX</title>
+<style>
+body{
+    margin:0;
+    overflow:hidden;
+    background:#111;
+    font-family:Arial,sans-serif;
+}
+canvas{
+    display:block;
+    margin:auto;
+    background:#2f8f46;
+}
+</style>
+</head>
+<body>
+<canvas id="game" width="1000" height="700"></canvas>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+const W=canvas.width;
+const H=canvas.height;
+const riverY=H/2;
+
+let gameOver=false;
+let winner="";
+
+const state={
+    playerElixir:5,
+    enemyElixir:5,
+    maxElixir:10,
+    selectedCard:null,
+    time:180
+};
+
+const cards=[
+    {name:'Knight',cost:3,hp:180,speed:1,damage:18,range:25,color:'#bbb',projectile:false},
+    {name:'Archer',cost:3,hp:90,speed:0.9,damage:12,range:140,color:'#49f',projectile:true},
+    {name:'Giant',cost:5,hp:420,speed:0.55,damage:36,range:30,color:'#c98',projectile:false},
+    {name:'Mini P.E.K.K.A',cost:4,hp:150,speed:1.1,damage:48,range:26,color:'#7df',projectile:false}
+];
+
+const projectiles=[];
+
+class Projectile{
+    constructor(x,y,target,damage,color){
+        this.x=x;
+        this.y=y;
+        this.target=target;
+        this.damage=damage;
+        this.color=color;
+        this.speed=6;
+        this.dead=false;
+    }
+
+    update(){
+        if(!this.target || this.target.hp<=0){
+            this.dead=true;
+            return;
+        }
+
+        const dx=this.target.x-this.x;
+        const dy=this.target.y-this.y;
+        const dist=Math.hypot(dx,dy);
+
+        if(dist<8){
+            this.target.hp-=this.damage;
+            this.dead=true;
+            return;
+        }
+
+        this.x += dx/dist*this.speed;
+        this.y += dy/dist*this.speed;
+    }
+
+    draw(){
+        ctx.beginPath();
+        ctx.fillStyle=this.color;
+        ctx.arc(this.x,this.y,5,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.strokeStyle='rgba(255,255,255,0.5)';
+        ctx.moveTo(this.x,this.y);
+        ctx.lineTo(this.x-8,this.y-8);
+        ctx.stroke();
+    }
+}
+
+class Tower{
+    constructor(x,y,team,king=false){
+        this.x=x;
+        this.y=y;
+        this.team=team;
+        this.king=king;
+        this.hp=king?1600:950;
+        this.maxHp=this.hp;
+        this.range=220;
+        this.reload=0;
+    }
+
+    update(){
+        if(this.hp<=0)return;
+
+        this.reload--;
+
+        let target=null;
+        let best=99999;
+
+        for(let u of units){
+            if(u.team!==this.team && u.hp>0){
+                let d=Math.hypot(u.x-this.x,u.y-this.y);
+                if(d<this.range && d<best){
+                    best=d;
+                    target=u;
+                }
+            }
+        }
+
+        if(target && this.reload<=0){
+            projectiles.push(
+                new Projectile(
+                    this.x,
+                    this.y,
+                    target,
+                    this.king?24:16,
+                    '#ffec70'
+                )
+            );
+            this.reload=35;
+        }
+    }
+
+    draw(){
+        if(this.hp<=0)return;
+
+        ctx.fillStyle=this.king?'#f2c94c':(this.team==='player'?'#4af':'#f55');
+        ctx.fillRect(this.x-28,this.y-28,56,56);
+
+        drawHealthBar(this.x-35,this.y-42,70,8,this.hp,this.maxHp);
+    }
+}
+
+class Unit{
+    constructor(x,y,team,card){
+        Object.assign(this,card);
+
+        this.x=x;
+        this.y=y;
+        this.team=team;
+        this.maxHp=this.hp;
+        this.attackCd=0;
+        this.size=this.name==='Giant'?26:18;
+    }
+
+    update(){
+        if(this.hp<=0)return;
+
+        this.attackCd--;
+
+        let targets=[];
+
+        towers.forEach(t=>{
+            if(t.team!==this.team && t.hp>0){
+                targets.push(t);
+            }
+        });
+
+        units.forEach(u=>{
+            if(u!==this && u.team!==this.team && u.hp>0){
+                targets.push(u);
+            }
+        });
+
+        let nearest=null;
+        let dist=99999;
+
+        for(let t of targets){
+            let d=Math.hypot(t.x-this.x,t.y-this.y);
+            if(d<dist){
+                dist=d;
+                nearest=t;
+            }
+        }
+
+        if(!nearest)return;
+
+        if(dist<=this.range){
+
+            if(this.attackCd<=0){
+
+                if(this.projectile){
+                    projectiles.push(
+                        new Projectile(
+                            this.x,
+                            this.y,
+                            nearest,
+                            this.damage,
+                            '#ffffff'
+                        )
+                    );
+                }else{
+                    nearest.hp -= this.damage;
+                }
+
+                this.attackCd=28;
+            }
+
+        }else{
+
+            let dx=(nearest.x-this.x)/dist;
+            let dy=(nearest.y-this.y)/dist;
+
+            let nextX=this.x+dx*this.speed*2;
+            let nextY=this.y+dy*this.speed*2;
+
+            const inRiver=
+                nextY>riverY-30 &&
+                nextY<riverY+30;
+
+            const onBridge=
+                (nextX>180&&nextX<300)||
+                (nextX>700&&nextX<820);
+
+            if(inRiver&&!onBridge){
+
+                const leftBridge=240;
+                const rightBridge=760;
+
+                const bridge=
+                    Math.abs(this.x-leftBridge)<
+                    Math.abs(this.x-rightBridge)
+                    ? leftBridge
+                    : rightBridge;
+
+                if(Math.abs(this.x-bridge)>5){
+                    this.x += Math.sign(bridge-this.x)*this.speed*2;
+                }else{
+                    this.y = nextY;
+                }
+
+            }else{
+                this.x = nextX;
+                this.y = nextY;
+            }
+        }
+    }
+
+    draw(){
+        ctx.beginPath();
+        ctx.fillStyle=this.color;
+        ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle='white';
+        ctx.font='10px Arial';
+        ctx.textAlign='center';
+        ctx.fillText(this.name,this.x,this.y+4);
+
+        drawHealthBar(
+            this.x-20,
+            this.y-this.size-12,
+            40,
+            5,
+            this.hp,
+            this.maxHp
+        );
+    }
+}
+
+function drawHealthBar(x,y,w,h,hp,maxHp){
+    ctx.fillStyle='black';
+    ctx.fillRect(x,y,w,h);
+
+    ctx.fillStyle='lime';
+    ctx.fillRect(x,y,w*(Math.max(hp,0)/maxHp),h);
+}
+
+const towers=[
+    new Tower(220,H-120,'player'),
+    new Tower(780,H-120,'player'),
+    new Tower(500,H-70,'player',true),
+
+    new Tower(220,120,'enemy'),
+    new Tower(780,120,'enemy'),
+    new Tower(500,70,'enemy',true)
+];
+
+const units=[];
+
+function drawArena(){
+
+    ctx.fillStyle='#38a14a';
+    ctx.fillRect(0,0,W,H);
+
+    ctx.fillStyle='#4ea5ff';
+    ctx.fillRect(0,riverY-30,W,60);
+
+    ctx.fillStyle='#d7bf84';
+    ctx.fillRect(180,riverY-35,120,70);
+    ctx.fillRect(700,riverY-35,120,70);
+
+    ctx.strokeStyle='white';
+    ctx.lineWidth=4;
+    ctx.beginPath();
+    ctx.moveTo(0,riverY);
+    ctx.lineTo(W,riverY);
+    ctx.stroke();
+}
+
+function drawUI(){
+
+    ctx.fillStyle='rgba(0,0,0,0.5)';
+    ctx.fillRect(0,0,W,40);
+
+    ctx.fillStyle='white';
+    ctx.font='20px Arial';
+    ctx.textAlign='center';
+
+    ctx.fillText("Time: "+Math.floor(state.time),W/2,25);
+    ctx.fillText("Elixir: "+Math.floor(state.playerElixir),120,25);
+
+    const startX=160;
+
+    cards.forEach((c,i)=>{
+
+        const x=startX+i*170;
+        const y=H-90;
+
+        ctx.fillStyle=
+            state.selectedCard===i
+            ? '#ffe66d'
+            : '#222';
+
+        ctx.fillRect(x,y,140,70);
+
+        ctx.fillStyle=c.color;
+        ctx.fillRect(x+5,y+5,60,60);
+
+        ctx.fillStyle='white';
+        ctx.font='16px Arial';
+        ctx.textAlign='left';
+        ctx.fillText(c.name,x+75,y+30);
+        ctx.fillText("💧"+c.cost,x+75,y+55);
+    });
+}
+
+function update(){
+
+    if(gameOver)return;
+
+    state.playerElixir=
+        Math.min(state.maxElixir,state.playerElixir+0.012);
+
+    state.enemyElixir=
+        Math.min(state.maxElixir,state.enemyElixir+0.012);
+
+    state.time-=1/60;
+
+    towers.forEach(t=>t.update());
+    units.forEach(u=>u.update());
+
+    projectiles.forEach(p=>p.update());
+
+    for(let i=units.length-1;i>=0;i--){
+        if(units[i].hp<=0){
+            units.splice(i,1);
+        }
+    }
+
+    for(let i=projectiles.length-1;i>=0;i--){
+        if(projectiles[i].dead){
+            projectiles.splice(i,1);
+        }
+    }
+
+    if(towers[2].hp<=0){
+        gameOver=true;
+        winner="Enemy Wins!";
+    }
+
+    if(towers[5].hp<=0){
+        gameOver=true;
+        winner="You Win!";
+    }
+
+    aiLogic();
+}
+
+let aiCooldown=0;
+
+function aiLogic(){
+
+    aiCooldown--;
+
+    if(aiCooldown>0)return;
+
+    const affordable=
+        cards.filter(c=>c.cost<=state.enemyElixir);
+
+    if(affordable.length===0)return;
+
+    const card=
+        affordable[
+            Math.floor(Math.random()*affordable.length)
+        ];
+
+    state.enemyElixir-=card.cost;
+
+    const lane=Math.random()<0.5?220:780;
+
+    units.push(
+        new Unit(
+            lane+(Math.random()*40-20),
+            160,
+            'enemy',
+            card
+        )
+    );
+
+    aiCooldown=70+Math.random()*70;
+}
+
+function draw(){
+
+    drawArena();
+
+    towers.forEach(t=>t.draw());
+    units.forEach(u=>u.draw());
+    projectiles.forEach(p=>p.draw());
+
+    drawUI();
+
+    if(gameOver){
+
+        ctx.fillStyle='rgba(0,0,0,0.7)';
+        ctx.fillRect(0,0,W,H);
+
+        ctx.fillStyle='white';
+        ctx.font='60px Arial';
+        ctx.textAlign='center';
+
+        ctx.fillText(winner,W/2,H/2);
+
+        ctx.font='24px Arial';
+        ctx.fillText("Refresh to play again",W/2,H/2+60);
+    }
+}
+
+canvas.addEventListener('click',e=>{
+
+    if(gameOver)return;
+
+    const rect=canvas.getBoundingClientRect();
+
+    const mx=e.clientX-rect.left;
+    const my=e.clientY-rect.top;
+
+    const startX=160;
+
+    cards.forEach((c,i)=>{
+
+        const x=startX+i*170;
+        const y=H-90;
+
+        if(mx>x&&mx<x+140&&my>y&&my<y+70){
+            state.selectedCard=i;
+        }
+    });
+
+    if(my>riverY+45&&state.selectedCard!==null){
+
+        const card=cards[state.selectedCard];
+
+        if(state.playerElixir>=card.cost){
+
+            state.playerElixir-=card.cost;
+
+            units.push(
+                new Unit(
+                    mx,
+                    Math.max(my,riverY+50),
+                    'player',
+                    card
+                )
+            );
+        }
+    }
+});
+
+function loop(){
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
