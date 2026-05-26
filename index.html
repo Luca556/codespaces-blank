@@ -96,8 +96,8 @@ const scene = new THREE.Scene();
 
 scene.fog = new THREE.Fog(
     0xdff3ff,
-    25,
-    180
+    40,
+    220
 );
 
 const camera = new THREE.PerspectiveCamera(
@@ -119,6 +119,75 @@ renderer.setSize(
 renderer.shadowMap.enabled = true;
 
 document.body.appendChild(renderer.domElement);
+
+////////////////////////////////////////////////////////////
+// SKY
+////////////////////////////////////////////////////////////
+
+scene.background = new THREE.Color(0x9ed8ff);
+
+////////////////////////////////////////////////////////////
+// MOUNTAIN RANGE
+////////////////////////////////////////////////////////////
+
+function createMountain(x, z, scale) {
+
+    const mountain = new THREE.Mesh(
+
+        new THREE.ConeGeometry(
+            18 * scale,
+            30 * scale,
+            4
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0xbfc7cf,
+            flatShading: true
+        })
+    );
+
+    mountain.position.set(
+        x,
+        10 * scale,
+        z
+    );
+
+    mountain.rotation.y =
+        Math.random() * Math.PI;
+
+    scene.add(mountain);
+
+    ////////////////////////////////////////////////////////////
+    // SNOW CAP
+    ////////////////////////////////////////////////////////////
+
+    const cap = new THREE.Mesh(
+
+        new THREE.ConeGeometry(
+            10 * scale,
+            12 * scale,
+            4
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            flatShading: true
+        })
+    );
+
+    cap.position.y = 14 * scale;
+
+    mountain.add(cap);
+}
+
+for (let i = 0; i < 25; i++) {
+
+    createMountain(
+        -180 + i * 16,
+        -220,
+        1 + Math.random() * 1.5
+    );
+}
 
 ////////////////////////////////////////////////////////////
 // LIGHTING
@@ -241,7 +310,11 @@ const player = {
 
     grounded: true,
 
-    turn: 0
+    turn: 0,
+
+    crashing: false,
+
+    crashTimer: 0
 };
 
 ////////////////////////////////////////////////////////////
@@ -295,10 +368,6 @@ function createTree(z) {
 
     const group = new THREE.Group();
 
-    ////////////////////////////////////////////////////////////
-    // TRUNK
-    ////////////////////////////////////////////////////////////
-
     const trunk = new THREE.Mesh(
 
         new THREE.CylinderGeometry(
@@ -320,10 +389,6 @@ function createTree(z) {
 
     group.add(trunk);
 
-    ////////////////////////////////////////////////////////////
-    // LOWER LEAVES
-    ////////////////////////////////////////////////////////////
-
     const leaves1 = new THREE.Mesh(
 
         new THREE.ConeGeometry(
@@ -333,20 +398,13 @@ function createTree(z) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0x145c1d,
-            roughness: 1
+            color: 0x145c1d
         })
     );
 
     leaves1.position.y = 3;
 
-    leaves1.castShadow = true;
-
     group.add(leaves1);
-
-    ////////////////////////////////////////////////////////////
-    // MIDDLE LEAVES
-    ////////////////////////////////////////////////////////////
 
     const leaves2 = new THREE.Mesh(
 
@@ -357,20 +415,13 @@ function createTree(z) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0x1b6e25,
-            roughness: 1
+            color: 0x1b6e25
         })
     );
 
     leaves2.position.y = 4.5;
 
-    leaves2.castShadow = true;
-
     group.add(leaves2);
-
-    ////////////////////////////////////////////////////////////
-    // TOP LEAVES
-    ////////////////////////////////////////////////////////////
 
     const leaves3 = new THREE.Mesh(
 
@@ -381,30 +432,19 @@ function createTree(z) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0x228b2d,
-            roughness: 1
+            color: 0x228b2d
         })
     );
 
     leaves3.position.y = 5.8;
 
-    leaves3.castShadow = true;
-
     group.add(leaves3);
-
-    ////////////////////////////////////////////////////////////
-    // POSITION
-    ////////////////////////////////////////////////////////////
 
     group.position.set(
         (Math.random() - 0.5) * 24,
         0,
         z
     );
-
-    ////////////////////////////////////////////////////////////
-    // RANDOM TREE SCALE
-    ////////////////////////////////////////////////////////////
 
     const scale =
         0.8 + Math.random() * 0.8;
@@ -414,13 +454,6 @@ function createTree(z) {
         scale,
         scale
     );
-
-    ////////////////////////////////////////////////////////////
-    // RANDOM ROTATION
-    ////////////////////////////////////////////////////////////
-
-    group.rotation.y =
-        Math.random() * Math.PI;
 
     scene.add(group);
 
@@ -582,16 +615,16 @@ snowGeo.setAttribute(
     )
 );
 
-const snowMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.12,
-    transparent: true,
-    opacity: 0.9
-});
-
 const snow = new THREE.Points(
+
     snowGeo,
-    snowMat
+
+    new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.12,
+        transparent: true,
+        opacity: 0.9
+    })
 );
 
 scene.add(snow);
@@ -609,7 +642,8 @@ window.addEventListener('keydown', e => {
     if (
         e.code === 'Space' &&
         player.grounded &&
-        playing
+        playing &&
+        !player.crashing
     ) {
         player.vy = 0.32;
         player.grounded = false;
@@ -666,7 +700,29 @@ function resetGame() {
 
     player.vy = 0;
 
+    player.turn = 0;
+
     player.grounded = true;
+
+    player.crashing = false;
+
+    player.crashTimer = 0;
+
+    camera.rotation.x = 0;
+    camera.rotation.z = 0;
+}
+
+////////////////////////////////////////////////////////////
+// CRASH
+////////////////////////////////////////////////////////////
+
+function crash() {
+
+    if (player.crashing) return;
+
+    player.crashing = true;
+
+    player.crashTimer = 80;
 }
 
 ////////////////////////////////////////////////////////////
@@ -693,9 +749,34 @@ function animate() {
 
     if (playing) {
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
+        // CRASH ANIMATION
+        ////////////////////////////////////////////////////////////
+
+        if (player.crashing) {
+
+            player.crashTimer--;
+
+            camera.rotation.x += 0.06;
+            camera.rotation.z += 0.08;
+
+            camera.position.y -= 0.03;
+
+            if (player.crashTimer <= 0) {
+
+                player.crashing = false;
+
+                gameOver();
+            }
+
+            renderer.render(scene, camera);
+
+            return;
+        }
+
+        ////////////////////////////////////////////////////////////
         // MOVEMENT
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         const targetTurn = (() => {
 
@@ -723,10 +804,6 @@ function animate() {
 
         })();
 
-        ////////////////////////////////////////////////////////////
-        // SMOOTH TURNING
-        ////////////////////////////////////////////////////////////
-
         player.turn += (
             targetTurn - player.turn
         ) * 0.12;
@@ -736,9 +813,9 @@ function animate() {
             Math.min(12, player.x)
         );
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // JUMPING
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         player.vy -= 0.018;
 
@@ -753,9 +830,9 @@ function animate() {
             player.grounded = true;
         }
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // CAMERA
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         player.sway += (
             (player.x * 0.04) -
@@ -779,9 +856,9 @@ function animate() {
             -30
         );
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // SKI ANIMATION
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         skiLeft.rotation.y =
             player.turn * 1.2;
@@ -795,18 +872,9 @@ function animate() {
         skiRight.rotation.z =
             player.turn * 0.3;
 
-        const skiBob =
-            Math.sin(Date.now() * 0.008) * 0.025;
-
-        skiLeft.position.y =
-            -0.55 + skiBob;
-
-        skiRight.position.y =
-            -0.55 - skiBob;
-
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // TREES
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         obstacles.forEach(tree => {
 
@@ -830,13 +898,13 @@ function animate() {
                 Math.abs(dx) < 1.5 &&
                 Math.abs(dz) < 2
             ) {
-                gameOver();
+                crash();
             }
         });
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // RAMPS
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         ramps.forEach(ramp => {
 
@@ -868,9 +936,9 @@ function animate() {
             }
         });
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // LOW BARRIERS
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         barriers.forEach(barrier => {
 
@@ -897,14 +965,14 @@ function animate() {
 
                 if (player.y < 1.2) {
 
-                    gameOver();
+                    crash();
                 }
             }
         });
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // COINS
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         coins.forEach(coin => {
 
@@ -937,9 +1005,9 @@ function animate() {
             }
         });
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // SNOW
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         snow.position.z +=
             player.speed * 0.25;
@@ -949,15 +1017,15 @@ function animate() {
             snow.position.z = 0;
         }
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // SPEED
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         player.speed += 0.00012;
 
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
         // SCORE
-        ////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////
 
         score += 0.2;
 
