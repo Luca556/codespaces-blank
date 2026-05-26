@@ -1,507 +1,885 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Royal Rush FX</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Snow Rider 3D Clone</title>
+
 <style>
-body{
-    margin:0;
-    overflow:hidden;
-    background:#111;
-    font-family:Arial,sans-serif;
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #87ceeb;
+    font-family: Arial, sans-serif;
 }
-canvas{
-    display:block;
-    margin:auto;
-    background:#2f8f46;
+
+canvas {
+    display: block;
 }
+
+#ui {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px black;
+    z-index: 10;
+}
+
+#menu {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.45);
+    color: white;
+    z-index: 20;
+}
+
+#menu h1 {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+#menu button {
+    padding: 16px 36px;
+    font-size: 24px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#controls {
+    margin-top: 20px;
+    font-size: 20px;
+}
+
 </style>
 </head>
+
 <body>
-<canvas id="game" width="1000" height="700"></canvas>
 
-<script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+<div id="ui">
+    Score: <span id="score">0</span>
+</div>
 
-const W=canvas.width;
-const H=canvas.height;
-const riverY=H/2;
+<div id="menu">
+    <h1>Snow Rider 3D</h1>
 
-let gameOver=false;
-let winner="";
+    <button id="startBtn">
+        START
+    </button>
 
-const state={
-    playerElixir:5,
-    enemyElixir:5,
-    maxElixir:10,
-    selectedCard:null,
-    time:180
-};
+    <div id="controls">
+        Move: A / D or ← / →<br>
+        Jump: SPACE
+    </div>
+</div>
 
-const cards=[
-    {name:'Knight',cost:3,hp:180,speed:1,damage:18,range:25,color:'#bbb',projectile:false},
-    {name:'Archer',cost:3,hp:90,speed:0.9,damage:12,range:140,color:'#49f',projectile:true},
-    {name:'Giant',cost:5,hp:420,speed:0.55,damage:36,range:30,color:'#c98',projectile:false},
-    {name:'Mini P.E.K.K.A',cost:4,hp:150,speed:1.1,damage:48,range:26,color:'#7df',projectile:false}
-];
+<script type="module">
 
-const projectiles=[];
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
 
-class Projectile{
-    constructor(x,y,target,damage,color){
-        this.x=x;
-        this.y=y;
-        this.target=target;
-        this.damage=damage;
-        this.color=color;
-        this.speed=6;
-        this.dead=false;
-    }
+////////////////////////////////////////////////////////////
+// SCENE
+////////////////////////////////////////////////////////////
 
-    update(){
-        if(!this.target || this.target.hp<=0){
-            this.dead=true;
-            return;
-        }
+const scene = new THREE.Scene();
 
-        const dx=this.target.x-this.x;
-        const dy=this.target.y-this.y;
-        const dist=Math.hypot(dx,dy);
+scene.fog = new THREE.Fog(
+    0xdff3ff,
+    25,
+    180
+);
 
-        if(dist<8){
-            this.target.hp-=this.damage;
-            this.dead=true;
-            return;
-        }
+const camera = new THREE.PerspectiveCamera(
+    80,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
 
-        this.x += dx/dist*this.speed;
-        this.y += dy/dist*this.speed;
-    }
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
 
-    draw(){
-        ctx.beginPath();
-        ctx.fillStyle=this.color;
-        ctx.arc(this.x,this.y,5,0,Math.PI*2);
-        ctx.fill();
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
 
-        ctx.beginPath();
-        ctx.strokeStyle='rgba(255,255,255,0.5)';
-        ctx.moveTo(this.x,this.y);
-        ctx.lineTo(this.x-8,this.y-8);
-        ctx.stroke();
-    }
+renderer.shadowMap.enabled = true;
+
+document.body.appendChild(renderer.domElement);
+
+////////////////////////////////////////////////////////////
+// LIGHTING
+////////////////////////////////////////////////////////////
+
+const hemi = new THREE.HemisphereLight(
+    0xffffff,
+    0xbfdfff,
+    1.2
+);
+
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(
+    0xffffff,
+    1.3
+);
+
+sun.position.set(20, 40, 10);
+
+sun.castShadow = true;
+
+scene.add(sun);
+
+////////////////////////////////////////////////////////////
+// TERRAIN
+////////////////////////////////////////////////////////////
+
+const terrainGeo = new THREE.PlaneGeometry(
+    70,
+    5000,
+    40,
+    200
+);
+
+const pos = terrainGeo.attributes.position;
+
+for (let i = 0; i < pos.count; i++) {
+
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+
+    const noise =
+        Math.sin(x * 0.15) * 0.6 +
+        Math.cos(y * 0.05) * 1.5 +
+        Math.sin((x + y) * 0.03) * 1.2;
+
+    pos.setZ(i, noise);
 }
 
-class Tower{
-    constructor(x,y,team,king=false){
-        this.x=x;
-        this.y=y;
-        this.team=team;
-        this.king=king;
-        this.hp=king?1600:950;
-        this.maxHp=this.hp;
-        this.range=220;
-        this.reload=0;
-    }
+terrainGeo.computeVertexNormals();
 
-    update(){
-        if(this.hp<=0)return;
+const terrainMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff
+});
 
-        this.reload--;
+const terrain = new THREE.Mesh(
+    terrainGeo,
+    terrainMat
+);
 
-        let target=null;
-        let best=99999;
+terrain.rotation.x = -Math.PI / 2;
 
-        for(let u of units){
-            if(u.team!==this.team && u.hp>0){
-                let d=Math.hypot(u.x-this.x,u.y-this.y);
-                if(d<this.range && d<best){
-                    best=d;
-                    target=u;
-                }
-            }
-        }
+terrain.position.z = -2400;
 
-        if(target && this.reload<=0){
-            projectiles.push(
-                new Projectile(
-                    this.x,
-                    this.y,
-                    target,
-                    this.king?24:16,
-                    '#ffec70'
-                )
-            );
-            this.reload=35;
-        }
-    }
+terrain.receiveShadow = true;
 
-    draw(){
-        if(this.hp<=0)return;
+scene.add(terrain);
 
-        ctx.fillStyle=this.king?'#f2c94c':(this.team==='player'?'#4af':'#f55');
-        ctx.fillRect(this.x-28,this.y-28,56,56);
+////////////////////////////////////////////////////////////
+// WALLS
+////////////////////////////////////////////////////////////
 
-        drawHealthBar(this.x-35,this.y-42,70,8,this.hp,this.maxHp);
-    }
-}
+function createBarrier(x) {
 
-class Unit{
-    constructor(x,y,team,card){
-        Object.assign(this,card);
-
-        this.x=x;
-        this.y=y;
-        this.team=team;
-        this.maxHp=this.hp;
-        this.attackCd=0;
-        this.size=this.name==='Giant'?26:18;
-    }
-
-    update(){
-        if(this.hp<=0)return;
-
-        this.attackCd--;
-
-        let targets=[];
-
-        towers.forEach(t=>{
-            if(t.team!==this.team && t.hp>0){
-                targets.push(t);
-            }
-        });
-
-        units.forEach(u=>{
-            if(u!==this && u.team!==this.team && u.hp>0){
-                targets.push(u);
-            }
-        });
-
-        let nearest=null;
-        let dist=99999;
-
-        for(let t of targets){
-            let d=Math.hypot(t.x-this.x,t.y-this.y);
-            if(d<dist){
-                dist=d;
-                nearest=t;
-            }
-        }
-
-        if(!nearest)return;
-
-        if(dist<=this.range){
-
-            if(this.attackCd<=0){
-
-                if(this.projectile){
-                    projectiles.push(
-                        new Projectile(
-                            this.x,
-                            this.y,
-                            nearest,
-                            this.damage,
-                            '#ffffff'
-                        )
-                    );
-                }else{
-                    nearest.hp -= this.damage;
-                }
-
-                this.attackCd=28;
-            }
-
-        }else{
-
-            let dx=(nearest.x-this.x)/dist;
-            let dy=(nearest.y-this.y)/dist;
-
-            let nextX=this.x+dx*this.speed*2;
-            let nextY=this.y+dy*this.speed*2;
-
-            const inRiver=
-                nextY>riverY-30 &&
-                nextY<riverY+30;
-
-            const onBridge=
-                (nextX>180&&nextX<300)||
-                (nextX>700&&nextX<820);
-
-            if(inRiver&&!onBridge){
-
-                const leftBridge=240;
-                const rightBridge=760;
-
-                const bridge=
-                    Math.abs(this.x-leftBridge)<
-                    Math.abs(this.x-rightBridge)
-                    ? leftBridge
-                    : rightBridge;
-
-                if(Math.abs(this.x-bridge)>5){
-                    this.x += Math.sign(bridge-this.x)*this.speed*2;
-                }else{
-                    this.y = nextY;
-                }
-
-            }else{
-                this.x = nextX;
-                this.y = nextY;
-            }
-        }
-    }
-
-    draw(){
-        ctx.beginPath();
-        ctx.fillStyle=this.color;
-        ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
-        ctx.fill();
-
-        ctx.fillStyle='white';
-        ctx.font='10px Arial';
-        ctx.textAlign='center';
-        ctx.fillText(this.name,this.x,this.y+4);
-
-        drawHealthBar(
-            this.x-20,
-            this.y-this.size-12,
-            40,
-            5,
-            this.hp,
-            this.maxHp
-        );
-    }
-}
-
-function drawHealthBar(x,y,w,h,hp,maxHp){
-    ctx.fillStyle='black';
-    ctx.fillRect(x,y,w,h);
-
-    ctx.fillStyle='lime';
-    ctx.fillRect(x,y,w*(Math.max(hp,0)/maxHp),h);
-}
-
-const towers=[
-    new Tower(220,H-120,'player'),
-    new Tower(780,H-120,'player'),
-    new Tower(500,H-70,'player',true),
-
-    new Tower(220,120,'enemy'),
-    new Tower(780,120,'enemy'),
-    new Tower(500,70,'enemy',true)
-];
-
-const units=[];
-
-function drawArena(){
-
-    ctx.fillStyle='#38a14a';
-    ctx.fillRect(0,0,W,H);
-
-    ctx.fillStyle='#4ea5ff';
-    ctx.fillRect(0,riverY-30,W,60);
-
-    ctx.fillStyle='#d7bf84';
-    ctx.fillRect(180,riverY-35,120,70);
-    ctx.fillRect(700,riverY-35,120,70);
-
-    ctx.strokeStyle='white';
-    ctx.lineWidth=4;
-    ctx.beginPath();
-    ctx.moveTo(0,riverY);
-    ctx.lineTo(W,riverY);
-    ctx.stroke();
-}
-
-function drawUI(){
-
-    ctx.fillStyle='rgba(0,0,0,0.5)';
-    ctx.fillRect(0,0,W,40);
-
-    ctx.fillStyle='white';
-    ctx.font='20px Arial';
-    ctx.textAlign='center';
-
-    ctx.fillText("Time: "+Math.floor(state.time),W/2,25);
-    ctx.fillText("Elixir: "+Math.floor(state.playerElixir),120,25);
-
-    const startX=160;
-
-    cards.forEach((c,i)=>{
-
-        const x=startX+i*170;
-        const y=H-90;
-
-        ctx.fillStyle=
-            state.selectedCard===i
-            ? '#ffe66d'
-            : '#222';
-
-        ctx.fillRect(x,y,140,70);
-
-        ctx.fillStyle=c.color;
-        ctx.fillRect(x+5,y+5,60,60);
-
-        ctx.fillStyle='white';
-        ctx.font='16px Arial';
-        ctx.textAlign='left';
-        ctx.fillText(c.name,x+75,y+30);
-        ctx.fillText("💧"+c.cost,x+75,y+55);
-    });
-}
-
-function update(){
-
-    if(gameOver)return;
-
-    state.playerElixir=
-        Math.min(state.maxElixir,state.playerElixir+0.012);
-
-    state.enemyElixir=
-        Math.min(state.maxElixir,state.enemyElixir+0.012);
-
-    state.time-=1/60;
-
-    towers.forEach(t=>t.update());
-    units.forEach(u=>u.update());
-
-    projectiles.forEach(p=>p.update());
-
-    for(let i=units.length-1;i>=0;i--){
-        if(units[i].hp<=0){
-            units.splice(i,1);
-        }
-    }
-
-    for(let i=projectiles.length-1;i>=0;i--){
-        if(projectiles[i].dead){
-            projectiles.splice(i,1);
-        }
-    }
-
-    if(towers[2].hp<=0){
-        gameOver=true;
-        winner="Enemy Wins!";
-    }
-
-    if(towers[5].hp<=0){
-        gameOver=true;
-        winner="You Win!";
-    }
-
-    aiLogic();
-}
-
-let aiCooldown=0;
-
-function aiLogic(){
-
-    aiCooldown--;
-
-    if(aiCooldown>0)return;
-
-    const affordable=
-        cards.filter(c=>c.cost<=state.enemyElixir);
-
-    if(affordable.length===0)return;
-
-    const card=
-        affordable[
-            Math.floor(Math.random()*affordable.length)
-        ];
-
-    state.enemyElixir-=card.cost;
-
-    const lane=Math.random()<0.5?220:780;
-
-    units.push(
-        new Unit(
-            lane+(Math.random()*40-20),
-            160,
-            'enemy',
-            card
-        )
+    const geo = new THREE.BoxGeometry(
+        2,
+        5,
+        5000
     );
 
-    aiCooldown=70+Math.random()*70;
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0x666666
+    });
+
+    const wall = new THREE.Mesh(
+        geo,
+        mat
+    );
+
+    wall.position.set(
+        x,
+        2.5,
+        -2400
+    );
+
+    wall.castShadow = true;
+
+    scene.add(wall);
 }
 
-function draw(){
+createBarrier(-15);
+createBarrier(15);
 
-    drawArena();
+////////////////////////////////////////////////////////////
+// PLAYER
+////////////////////////////////////////////////////////////
 
-    towers.forEach(t=>t.draw());
-    units.forEach(u=>u.draw());
-    projectiles.forEach(p=>p.draw());
+const player = {
 
-    drawUI();
+    x: 0,
+    y: 0,
+    z: 8,
 
-    if(gameOver){
+    speed: 0.9,
 
-        ctx.fillStyle='rgba(0,0,0,0.7)';
-        ctx.fillRect(0,0,W,H);
+    sway: 0,
 
-        ctx.fillStyle='white';
-        ctx.font='60px Arial';
-        ctx.textAlign='center';
+    vy: 0,
 
-        ctx.fillText(winner,W/2,H/2);
+    grounded: true,
 
-        ctx.font='24px Arial';
-        ctx.fillText("Refresh to play again",W/2,H/2+60);
-    }
-}
+    turn: 0
+};
 
-canvas.addEventListener('click',e=>{
+////////////////////////////////////////////////////////////
+// SKIS
+////////////////////////////////////////////////////////////
 
-    if(gameOver)return;
+const skiGeo = new THREE.BoxGeometry(
+    0.15,
+    0.05,
+    2.2
+);
 
-    const rect=canvas.getBoundingClientRect();
+const skiMat = new THREE.MeshStandardMaterial({
+    color: 0xff3333
+});
 
-    const mx=e.clientX-rect.left;
-    const my=e.clientY-rect.top;
+const skiLeft = new THREE.Mesh(
+    skiGeo,
+    skiMat
+);
 
-    const startX=160;
+const skiRight = new THREE.Mesh(
+    skiGeo,
+    skiMat
+);
 
-    cards.forEach((c,i)=>{
+skiLeft.position.set(
+    -0.3,
+    -0.55,
+    -1.2
+);
 
-        const x=startX+i*170;
-        const y=H-90;
+skiRight.position.set(
+    0.3,
+    -0.55,
+    -1.2
+);
 
-        if(mx>x&&mx<x+140&&my>y&&my<y+70){
-            state.selectedCard=i;
+camera.add(skiLeft);
+camera.add(skiRight);
+
+scene.add(camera);
+
+////////////////////////////////////////////////////////////
+// TREES
+////////////////////////////////////////////////////////////
+
+const obstacles = [];
+
+function createTree(z) {
+
+    const group = new THREE.Group();
+
+    const trunk = new THREE.Mesh(
+
+        new THREE.CylinderGeometry(
+            0.25,
+            0.35,
+            2
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0x7a4a22
+        })
+    );
+
+    trunk.position.y = 1;
+
+    group.add(trunk);
+
+    const leaves = new THREE.Mesh(
+
+        new THREE.ConeGeometry(
+            1.3,
+            4,
+            10
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0x145c1d
+        })
+    );
+
+    leaves.position.y = 3.5;
+
+    group.add(leaves);
+
+    group.position.set(
+        (Math.random() - 0.5) * 24,
+        0,
+        z
+    );
+
+    group.traverse(o => {
+        if (o.isMesh) {
+            o.castShadow = true;
         }
     });
 
-    if(my>riverY+45&&state.selectedCard!==null){
+    scene.add(group);
 
-        const card=cards[state.selectedCard];
+    obstacles.push(group);
+}
 
-        if(state.playerElixir>=card.cost){
+for (let i = 0; i < 220; i++) {
 
-            state.playerElixir-=card.cost;
+    createTree(-i * 22);
+}
 
-            units.push(
-                new Unit(
-                    mx,
-                    Math.max(my,riverY+50),
-                    'player',
-                    card
-                )
-            );
-        }
+////////////////////////////////////////////////////////////
+// RAMPS
+////////////////////////////////////////////////////////////
+
+const ramps = [];
+
+function createRamp(z) {
+
+    const ramp = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            3,
+            1,
+            4
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0x884400
+        })
+    );
+
+    ramp.position.set(
+        (Math.random() - 0.5) * 18,
+        0.5,
+        z
+    );
+
+    ramp.rotation.x = -0.35;
+
+    ramp.castShadow = true;
+
+    scene.add(ramp);
+
+    ramps.push(ramp);
+}
+
+for (let i = 0; i < 40; i++) {
+
+    createRamp(-i * 120 - 80);
+}
+
+////////////////////////////////////////////////////////////
+// LOW BARRIERS
+////////////////////////////////////////////////////////////
+
+const barriers = [];
+
+function createLowBarrier(z) {
+
+    const barrier = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            5,
+            2,
+            1
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0xcc2222
+        })
+    );
+
+    barrier.position.set(
+        (Math.random() - 0.5) * 16,
+        1,
+        z
+    );
+
+    barrier.castShadow = true;
+
+    scene.add(barrier);
+
+    barriers.push(barrier);
+}
+
+for (let i = 0; i < 35; i++) {
+
+    createLowBarrier(-i * 150 - 120);
+}
+
+////////////////////////////////////////////////////////////
+// COINS
+////////////////////////////////////////////////////////////
+
+const coins = [];
+
+function createCoin(z) {
+
+    const coin = new THREE.Mesh(
+
+        new THREE.TorusGeometry(
+            0.5,
+            0.18,
+            8,
+            16
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            emissive: 0xaa8800
+        })
+    );
+
+    coin.rotation.x = Math.PI / 2;
+
+    coin.position.set(
+        (Math.random() - 0.5) * 18,
+        1.4,
+        z
+    );
+
+    scene.add(coin);
+
+    coins.push(coin);
+}
+
+for (let i = 0; i < 120; i++) {
+
+    createCoin(-i * 28 - 15);
+}
+
+////////////////////////////////////////////////////////////
+// SNOW
+////////////////////////////////////////////////////////////
+
+const snowGeo = new THREE.BufferGeometry();
+
+const snowVerts = [];
+
+for (let i = 0; i < 4000; i++) {
+
+    snowVerts.push(
+        (Math.random() - 0.5) * 120,
+        Math.random() * 35,
+        (Math.random() - 0.5) * 220
+    );
+}
+
+snowGeo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+        snowVerts,
+        3
+    )
+);
+
+const snowMat = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.12,
+    transparent: true,
+    opacity: 0.9
+});
+
+const snow = new THREE.Points(
+    snowGeo,
+    snowMat
+);
+
+scene.add(snow);
+
+////////////////////////////////////////////////////////////
+// CONTROLS
+////////////////////////////////////////////////////////////
+
+const keys = {};
+
+window.addEventListener('keydown', e => {
+
+    keys[e.key.toLowerCase()] = true;
+
+    if (
+        e.code === 'Space' &&
+        player.grounded &&
+        playing
+    ) {
+        player.vy = 0.32;
+        player.grounded = false;
     }
 });
 
-function loop(){
-    update();
-    draw();
-    requestAnimationFrame(loop);
+window.addEventListener('keyup', e => {
+
+    keys[e.key.toLowerCase()] = false;
+});
+
+////////////////////////////////////////////////////////////
+// UI
+////////////////////////////////////////////////////////////
+
+const scoreEl =
+    document.getElementById('score');
+
+const menu =
+    document.getElementById('menu');
+
+const startBtn =
+    document.getElementById('startBtn');
+
+let score = 0;
+
+let playing = false;
+
+////////////////////////////////////////////////////////////
+// START
+////////////////////////////////////////////////////////////
+
+startBtn.onclick = () => {
+
+    resetGame();
+
+    playing = true;
+
+    menu.style.display = 'none';
+};
+
+////////////////////////////////////////////////////////////
+// RESET
+////////////////////////////////////////////////////////////
+
+function resetGame() {
+
+    score = 0;
+
+    player.x = 0;
+    player.y = 0;
+
+    player.speed = 0.9;
+
+    player.vy = 0;
+
+    player.grounded = true;
 }
 
-loop();
+////////////////////////////////////////////////////////////
+// GAME OVER
+////////////////////////////////////////////////////////////
+
+function gameOver() {
+
+    playing = false;
+
+    menu.style.display = 'flex';
+
+    menu.querySelector('h1').textContent =
+        'CRASHED!';
+}
+
+////////////////////////////////////////////////////////////
+// ANIMATION LOOP
+////////////////////////////////////////////////////////////
+
+function animate() {
+
+    requestAnimationFrame(animate);
+
+    if (playing) {
+
+        ////////////////////////////////////////////
+        // MOVEMENT
+        ////////////////////////////////////////////
+
+ if (keys['a'] || keys['arrowleft']) {
+
+    player.x -= 0.22;
+
+    player.turn = 0.25;
+}
+
+else if (
+    keys['d'] ||
+    keys['arrowright']
+) {
+
+    player.x += 0.22;
+
+    player.turn = -0.25;
+}
+
+        else {
+
+            player.turn *= 0.88;
+        }
+
+        player.x = Math.max(
+            -12,
+            Math.min(12, player.x)
+        );
+
+        ////////////////////////////////////////////
+        // JUMPING
+        ////////////////////////////////////////////
+
+        player.vy -= 0.018;
+
+        player.y += player.vy;
+
+        if (player.y <= 0) {
+
+            player.y = 0;
+
+            player.vy = 0;
+
+            player.grounded = true;
+        }
+
+        ////////////////////////////////////////////
+        // CAMERA
+        ////////////////////////////////////////////
+
+        player.sway += (
+            (player.x * 0.04) -
+            player.sway
+        ) * 0.08;
+
+        camera.position.set(
+            player.x,
+            2.3 + player.y,
+            10
+        );
+
+        camera.rotation.z = -player.sway;
+
+        camera.rotation.y =
+            player.turn * 0.35;
+
+        camera.lookAt(
+            player.x + player.turn * 6,
+            1.2 + player.y,
+            -30
+        );
+
+        ////////////////////////////////////////////
+        // SKI ANIMATION
+        ////////////////////////////////////////////
+
+        skiLeft.rotation.y = player.turn;
+        skiRight.rotation.y = player.turn;
+
+        skiLeft.position.y =
+            -0.55 +
+            Math.sin(Date.now() * 0.01) * 0.02;
+
+        skiRight.position.y =
+            -0.55 -
+            Math.sin(Date.now() * 0.01) * 0.02;
+
+        ////////////////////////////////////////////
+        // TREES
+        ////////////////////////////////////////////
+
+        obstacles.forEach(tree => {
+
+            tree.position.z += player.speed;
+
+            if (tree.position.z > 20) {
+
+                tree.position.z = -4800;
+
+                tree.position.x =
+                    (Math.random() - 0.5) * 24;
+            }
+
+            const dx =
+                tree.position.x - player.x;
+
+            const dz =
+                tree.position.z - player.z;
+
+            if (
+                Math.abs(dx) < 1.5 &&
+                Math.abs(dz) < 2
+            ) {
+                gameOver();
+            }
+        });
+
+        ////////////////////////////////////////////
+        // RAMPS
+        ////////////////////////////////////////////
+
+        ramps.forEach(ramp => {
+
+            ramp.position.z += player.speed;
+
+            if (ramp.position.z > 20) {
+
+                ramp.position.z = -5000;
+
+                ramp.position.x =
+                    (Math.random() - 0.5) * 18;
+            }
+
+            const dx =
+                ramp.position.x - player.x;
+
+            const dz =
+                ramp.position.z - player.z;
+
+            if (
+                Math.abs(dx) < 2 &&
+                Math.abs(dz) < 3 &&
+                player.grounded
+            ) {
+
+                player.vy = 0.42;
+
+                player.grounded = false;
+            }
+        });
+
+        ////////////////////////////////////////////
+        // LOW BARRIERS
+        ////////////////////////////////////////////
+
+        barriers.forEach(barrier => {
+
+            barrier.position.z += player.speed;
+
+            if (barrier.position.z > 20) {
+
+                barrier.position.z = -5200;
+
+                barrier.position.x =
+                    (Math.random() - 0.5) * 16;
+            }
+
+            const dx =
+                barrier.position.x - player.x;
+
+            const dz =
+                barrier.position.z - player.z;
+
+            if (
+                Math.abs(dx) < 2.8 &&
+                Math.abs(dz) < 1.5
+            ) {
+
+                if (player.y < 1.2) {
+
+                    gameOver();
+                }
+            }
+        });
+
+        ////////////////////////////////////////////
+        // COINS
+        ////////////////////////////////////////////
+
+        coins.forEach(coin => {
+
+            coin.rotation.z += 0.08;
+
+            coin.position.z += player.speed;
+
+            if (coin.position.z > 20) {
+
+                coin.position.z = -4500;
+
+                coin.position.x =
+                    (Math.random() - 0.5) * 18;
+            }
+
+            const dx =
+                coin.position.x - player.x;
+
+            const dz =
+                coin.position.z - player.z;
+
+            if (
+                Math.abs(dx) < 1.2 &&
+                Math.abs(dz) < 2
+            ) {
+
+                score += 25;
+
+                coin.position.z = -4500;
+            }
+        });
+
+        ////////////////////////////////////////////
+        // SNOW
+        ////////////////////////////////////////////
+
+        snow.position.z +=
+            player.speed * 0.25;
+
+        if (snow.position.z > 50) {
+
+            snow.position.z = 0;
+        }
+
+        ////////////////////////////////////////////
+        // SPEED
+        ////////////////////////////////////////////
+
+        player.speed += 0.00012;
+
+        ////////////////////////////////////////////
+        // SCORE
+        ////////////////////////////////////////////
+
+        score += 0.2;
+
+        scoreEl.textContent =
+            Math.floor(score);
+    }
+
+    renderer.render(scene, camera);
+}
+
+animate();
+
+////////////////////////////////////////////////////////////
+// RESIZE
+////////////////////////////////////////////////////////////
+
+window.addEventListener('resize', () => {
+
+    camera.aspect =
+        window.innerWidth /
+        window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+});
+
 </script>
+
 </body>
 </html>
