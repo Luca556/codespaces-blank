@@ -58,6 +58,7 @@ canvas {
 #controls {
     margin-top: 20px;
     font-size: 20px;
+    text-align: center;
 }
 
 </style>
@@ -94,6 +95,8 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.mod
 
 const scene = new THREE.Scene();
 
+scene.background = new THREE.Color(0x9ed8ff);
+
 scene.fog = new THREE.Fog(
     0xdff3ff,
     40,
@@ -121,13 +124,7 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 ////////////////////////////////////////////////////////////
-// SKY
-////////////////////////////////////////////////////////////
-
-scene.background = new THREE.Color(0x9ed8ff);
-
-////////////////////////////////////////////////////////////
-// MOUNTAIN RANGE
+// MOUNTAINS
 ////////////////////////////////////////////////////////////
 
 function createMountain(x, z, scale) {
@@ -156,10 +153,6 @@ function createMountain(x, z, scale) {
         Math.random() * Math.PI;
 
     scene.add(mountain);
-
-    ////////////////////////////////////////////////////////////
-    // SNOW CAP
-    ////////////////////////////////////////////////////////////
 
     const cap = new THREE.Mesh(
 
@@ -240,13 +233,13 @@ for (let i = 0; i < pos.count; i++) {
 
 terrainGeo.computeVertexNormals();
 
-const terrainMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff
-});
-
 const terrain = new THREE.Mesh(
+
     terrainGeo,
-    terrainMat
+
+    new THREE.MeshStandardMaterial({
+        color: 0xffffff
+    })
 );
 
 terrain.rotation.x = -Math.PI / 2;
@@ -261,21 +254,19 @@ scene.add(terrain);
 // WALLS
 ////////////////////////////////////////////////////////////
 
-function createBarrier(x) {
-
-    const geo = new THREE.BoxGeometry(
-        2,
-        5,
-        5000
-    );
-
-    const mat = new THREE.MeshStandardMaterial({
-        color: 0x666666
-    });
+function createWall(x) {
 
     const wall = new THREE.Mesh(
-        geo,
-        mat
+
+        new THREE.BoxGeometry(
+            2,
+            5,
+            5000
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color: 0x666666
+        })
     );
 
     wall.position.set(
@@ -289,8 +280,8 @@ function createBarrier(x) {
     scene.add(wall);
 }
 
-createBarrier(-15);
-createBarrier(15);
+createWall(-15);
+createWall(15);
 
 ////////////////////////////////////////////////////////////
 // PLAYER
@@ -404,6 +395,8 @@ function createTree(z) {
 
     leaves1.position.y = 3;
 
+    leaves1.castShadow = true;
+
     group.add(leaves1);
 
     const leaves2 = new THREE.Mesh(
@@ -420,6 +413,8 @@ function createTree(z) {
     );
 
     leaves2.position.y = 4.5;
+
+    leaves2.castShadow = true;
 
     group.add(leaves2);
 
@@ -438,6 +433,8 @@ function createTree(z) {
 
     leaves3.position.y = 5.8;
 
+    leaves3.castShadow = true;
+
     group.add(leaves3);
 
     group.position.set(
@@ -454,6 +451,9 @@ function createTree(z) {
         scale,
         scale
     );
+
+    group.rotation.y =
+        Math.random() * Math.PI;
 
     scene.add(group);
 
@@ -591,7 +591,7 @@ for (let i = 0; i < 120; i++) {
 }
 
 ////////////////////////////////////////////////////////////
-// SNOW
+// SNOW PARTICLES
 ////////////////////////////////////////////////////////////
 
 const snowGeo = new THREE.BufferGeometry();
@@ -645,7 +645,9 @@ window.addEventListener('keydown', e => {
         playing &&
         !player.crashing
     ) {
+
         player.vy = 0.32;
+
         player.grounded = false;
     }
 });
@@ -686,10 +688,14 @@ startBtn.onclick = () => {
 };
 
 ////////////////////////////////////////////////////////////
-// RESET
+// RESET GAME
 ////////////////////////////////////////////////////////////
 
 function resetGame() {
+
+    ////////////////////////////////////////////////////////////
+    // PLAYER RESET
+    ////////////////////////////////////////////////////////////
 
     score = 0;
 
@@ -708,8 +714,84 @@ function resetGame() {
 
     player.crashTimer = 0;
 
+    ////////////////////////////////////////////////////////////
+    // CAMERA RESET
+    ////////////////////////////////////////////////////////////
+
     camera.rotation.x = 0;
+    camera.rotation.y = 0;
     camera.rotation.z = 0;
+
+    camera.position.set(
+        0,
+        2.3,
+        10
+    );
+
+    ////////////////////////////////////////////////////////////
+    // SAFE SPAWN DISTANCE
+    ////////////////////////////////////////////////////////////
+
+    const safeDistance = -120;
+
+    ////////////////////////////////////////////////////////////
+    // RESET TREES
+    ////////////////////////////////////////////////////////////
+
+    obstacles.forEach((tree, i) => {
+
+        tree.position.z =
+            safeDistance - (i * 22);
+
+        tree.position.x =
+            (Math.random() - 0.5) * 24;
+    });
+
+    ////////////////////////////////////////////////////////////
+    // RESET RAMPS
+    ////////////////////////////////////////////////////////////
+
+    ramps.forEach((ramp, i) => {
+
+        ramp.position.z =
+            safeDistance - 200 - (i * 120);
+
+        ramp.position.x =
+            (Math.random() - 0.5) * 18;
+    });
+
+    ////////////////////////////////////////////////////////////
+    // RESET BARRIERS
+    ////////////////////////////////////////////////////////////
+
+    barriers.forEach((barrier, i) => {
+
+        barrier.position.z =
+            safeDistance - 350 - (i * 150);
+
+        barrier.position.x =
+            (Math.random() - 0.5) * 16;
+    });
+
+    ////////////////////////////////////////////////////////////
+    // RESET COINS
+    ////////////////////////////////////////////////////////////
+
+    coins.forEach((coin, i) => {
+
+        coin.position.z =
+            safeDistance - 50 - (i * 28);
+
+        coin.position.x =
+            (Math.random() - 0.5) * 18;
+    });
+
+    ////////////////////////////////////////////////////////////
+    // RESET TITLE
+    ////////////////////////////////////////////////////////////
+
+    menu.querySelector('h1').textContent =
+        'Snow Rider 3D';
 }
 
 ////////////////////////////////////////////////////////////
@@ -740,7 +822,7 @@ function gameOver() {
 }
 
 ////////////////////////////////////////////////////////////
-// ANIMATION LOOP
+// ANIMATE
 ////////////////////////////////////////////////////////////
 
 function animate() {
@@ -872,6 +954,15 @@ function animate() {
         skiRight.rotation.z =
             player.turn * 0.3;
 
+        const skiBob =
+            Math.sin(Date.now() * 0.008) * 0.025;
+
+        skiLeft.position.y =
+            -0.55 + skiBob;
+
+        skiRight.position.y =
+            -0.55 - skiBob;
+
         ////////////////////////////////////////////////////////////
         // TREES
         ////////////////////////////////////////////////////////////
@@ -898,6 +989,7 @@ function animate() {
                 Math.abs(dx) < 1.5 &&
                 Math.abs(dz) < 2
             ) {
+
                 crash();
             }
         });
@@ -937,7 +1029,7 @@ function animate() {
         });
 
         ////////////////////////////////////////////////////////////
-        // LOW BARRIERS
+        // BARRIERS
         ////////////////////////////////////////////////////////////
 
         barriers.forEach(barrier => {
