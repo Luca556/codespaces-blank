@@ -1,64 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Snow Rider 3D Clone</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snow Rider 3D</title>
 
 <style>
 
-body {
-    margin: 0;
-    overflow: hidden;
-    background: #87ceeb;
-    font-family: Arial, sans-serif;
+body{
+    margin:0;
+    overflow:hidden;
+    background:#87ceeb;
+    font-family:Arial, sans-serif;
 }
 
-canvas {
-    display: block;
+canvas{
+    display:block;
 }
 
-#ui {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    color: white;
-    font-size: 28px;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px black;
-    z-index: 10;
+#ui{
+    position:absolute;
+    top:15px;
+    left:15px;
+    color:white;
+    font-size:28px;
+    font-weight:bold;
+    text-shadow:2px 2px 4px black;
+    z-index:10;
 }
 
-#menu {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0,0,0,0.45);
-    color: white;
-    z-index: 20;
+#menu{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,0.45);
+    color:white;
+    z-index:20;
 }
 
-#menu h1 {
-    font-size: 64px;
-    margin-bottom: 20px;
+#menu h1{
+    font-size:64px;
+    margin-bottom:20px;
 }
 
-#menu button {
-    padding: 16px 36px;
-    font-size: 24px;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: bold;
+#menu button{
+    padding:16px 36px;
+    font-size:24px;
+    border:none;
+    border-radius:12px;
+    cursor:pointer;
+    font-weight:bold;
 }
 
-#controls {
-    margin-top: 20px;
-    font-size: 20px;
-    text-align: center;
+#controls{
+    margin-top:20px;
+    font-size:20px;
+    text-align:center;
 }
 
 </style>
@@ -84,6 +84,22 @@ canvas {
     </div>
 
 </div>
+
+<audio id="windSound" loop>
+<source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8f2b6f6f0.mp3?filename=wind-ambience-110997.mp3">
+</audio>
+
+<audio id="jumpSound">
+<source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_4a1d55f5cb.mp3?filename=jump-110990.mp3">
+</audio>
+
+<audio id="coinSound">
+<source src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8630b1cfd.mp3?filename=collectcoin-6075.mp3">
+</audio>
+
+<audio id="crashSound">
+<source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_efcc8b0f7f.mp3?filename=impact-crash-110985.mp3">
+</audio>
 
 <script type="module">
 
@@ -111,7 +127,7 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 const renderer = new THREE.WebGLRenderer({
-    antialias: true
+    antialias:true
 });
 
 renderer.setSize(
@@ -124,10 +140,47 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 ////////////////////////////////////////////////////////////
+// AUDIO
+////////////////////////////////////////////////////////////
+
+const windSound = document.getElementById('windSound');
+const jumpSound = document.getElementById('jumpSound');
+const coinSound = document.getElementById('coinSound');
+const crashSound = document.getElementById('crashSound');
+
+windSound.volume = 0.35;
+jumpSound.volume = 0.5;
+coinSound.volume = 0.4;
+crashSound.volume = 0.6;
+
+////////////////////////////////////////////////////////////
+// LIGHTING
+////////////////////////////////////////////////////////////
+
+const hemi = new THREE.HemisphereLight(
+    0xffffff,
+    0xbfdfff,
+    1.2
+);
+
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(
+    0xffffff,
+    1.3
+);
+
+sun.position.set(20,40,10);
+
+sun.castShadow = true;
+
+scene.add(sun);
+
+////////////////////////////////////////////////////////////
 // MOUNTAINS
 ////////////////////////////////////////////////////////////
 
-function createMountain(x, z, scale) {
+function createMountain(x,z,scale){
 
     const mountain = new THREE.Mesh(
 
@@ -138,8 +191,8 @@ function createMountain(x, z, scale) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0xbfc7cf,
-            flatShading: true
+            color:0xbfc7cf,
+            flatShading:true
         })
     );
 
@@ -163,8 +216,8 @@ function createMountain(x, z, scale) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            flatShading: true
+            color:0xffffff,
+            flatShading:true
         })
     );
 
@@ -173,7 +226,7 @@ function createMountain(x, z, scale) {
     mountain.add(cap);
 }
 
-for (let i = 0; i < 25; i++) {
+for(let i=0;i<25;i++){
 
     createMountain(
         -180 + i * 16,
@@ -181,29 +234,6 @@ for (let i = 0; i < 25; i++) {
         1 + Math.random() * 1.5
     );
 }
-
-////////////////////////////////////////////////////////////
-// LIGHTING
-////////////////////////////////////////////////////////////
-
-const hemi = new THREE.HemisphereLight(
-    0xffffff,
-    0xbfdfff,
-    1.2
-);
-
-scene.add(hemi);
-
-const sun = new THREE.DirectionalLight(
-    0xffffff,
-    1.3
-);
-
-sun.position.set(20, 40, 10);
-
-sun.castShadow = true;
-
-scene.add(sun);
 
 ////////////////////////////////////////////////////////////
 // TERRAIN
@@ -218,7 +248,7 @@ const terrainGeo = new THREE.PlaneGeometry(
 
 const pos = terrainGeo.attributes.position;
 
-for (let i = 0; i < pos.count; i++) {
+for(let i=0;i<pos.count;i++){
 
     const x = pos.getX(i);
     const y = pos.getY(i);
@@ -226,9 +256,9 @@ for (let i = 0; i < pos.count; i++) {
     const noise =
         Math.sin(x * 0.15) * 0.6 +
         Math.cos(y * 0.05) * 1.5 +
-        Math.sin((x + y) * 0.03) * 1.2;
+        Math.sin((x+y) * 0.03) * 1.2;
 
-    pos.setZ(i, noise);
+    pos.setZ(i,noise);
 }
 
 terrainGeo.computeVertexNormals();
@@ -238,14 +268,12 @@ const terrain = new THREE.Mesh(
     terrainGeo,
 
     new THREE.MeshStandardMaterial({
-        color: 0xffffff
+        color:0xffffff
     })
 );
 
 terrain.rotation.x = -Math.PI / 2;
-
 terrain.position.z = -2400;
-
 terrain.receiveShadow = true;
 
 scene.add(terrain);
@@ -254,7 +282,7 @@ scene.add(terrain);
 // WALLS
 ////////////////////////////////////////////////////////////
 
-function createWall(x) {
+function createWall(x){
 
     const wall = new THREE.Mesh(
 
@@ -265,7 +293,7 @@ function createWall(x) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0x666666
+            color:0x666666
         })
     );
 
@@ -274,8 +302,6 @@ function createWall(x) {
         2.5,
         -2400
     );
-
-    wall.castShadow = true;
 
     scene.add(wall);
 }
@@ -289,23 +315,23 @@ createWall(15);
 
 const player = {
 
-    x: 0,
-    y: 0,
-    z: 8,
+    x:0,
+    y:0,
+    z:8,
 
-    speed: 0.9,
+    speed:0.9,
 
-    sway: 0,
+    sway:0,
 
-    vy: 0,
+    vy:0,
 
-    grounded: true,
+    grounded:true,
 
-    turn: 0,
+    turn:0,
 
-    crashing: false,
+    crashing:false,
 
-    crashTimer: 0
+    crashTimer:0
 };
 
 ////////////////////////////////////////////////////////////
@@ -319,7 +345,9 @@ const skiGeo = new THREE.BoxGeometry(
 );
 
 const skiMat = new THREE.MeshStandardMaterial({
-    color: 0xff3333
+    color:0x6b4423,
+    roughness:0.9,
+    metalness:0.05
 });
 
 const skiLeft = new THREE.Mesh(
@@ -350,12 +378,100 @@ camera.add(skiRight);
 scene.add(camera);
 
 ////////////////////////////////////////////////////////////
+// SNOW PARTICLES
+////////////////////////////////////////////////////////////
+
+const driftSnow = [];
+
+function createSnowParticle(){
+
+    const particle = new THREE.Mesh(
+
+        new THREE.SphereGeometry(
+            0.08,
+            6,
+            6
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0xffffff,
+            transparent:true,
+            opacity:0.9
+        })
+    );
+
+    particle.visible = false;
+
+    scene.add(particle);
+
+    driftSnow.push({
+
+        mesh:particle,
+
+        vx:0,
+        vy:0,
+        vz:0,
+
+        life:0
+    });
+}
+
+for(let i=0;i<160;i++){
+
+    createSnowParticle();
+}
+
+function emitSnow(){
+
+    for(let i=0;i<8;i++){
+
+        const p = driftSnow.find(
+            s => s.life <= 0
+        );
+
+        if(!p) return;
+
+        p.life = 1;
+
+        p.mesh.visible = true;
+
+        const sideOffset =
+            player.turn * 2.5;
+
+        p.mesh.position.set(
+
+            player.x - sideOffset +
+
+            (Math.random() - 0.5) * 1.8,
+
+            0.3 + Math.random() * 0.4,
+
+            7 + Math.random() * 1.5
+        );
+
+        p.vx =
+            player.turn * 2.8 +
+            (Math.random() - 0.5) * 0.18;
+
+        p.vy =
+            0.06 + Math.random() * 0.08;
+
+        p.vz =
+            0.05 + Math.random() * 0.08;
+
+        p.mesh.scale.setScalar(
+            1.2 + Math.random() * 1.8
+        );
+    }
+}
+
+////////////////////////////////////////////////////////////
 // TREES
 ////////////////////////////////////////////////////////////
 
 const obstacles = [];
 
-function createTree(z) {
+function createTree(z){
 
     const group = new THREE.Group();
 
@@ -369,98 +485,47 @@ function createTree(z) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0x6b3e1e,
-            roughness: 1
+            color:0x6b3e1e
         })
     );
 
     trunk.position.y = 1.3;
 
-    trunk.castShadow = true;
-
     group.add(trunk);
 
-    const leaves1 = new THREE.Mesh(
+    for(let i=0;i<3;i++){
 
-        new THREE.ConeGeometry(
-            1.8,
-            3.8,
-            12
-        ),
+        const leaves = new THREE.Mesh(
 
-        new THREE.MeshStandardMaterial({
-            color: 0x145c1d
-        })
-    );
+            new THREE.ConeGeometry(
+                1.8 - i * 0.35,
+                3.8 - i * 0.4,
+                12
+            ),
 
-    leaves1.position.y = 3;
+            new THREE.MeshStandardMaterial({
+                color:0x145c1d + i * 0x082008
+            })
+        );
 
-    leaves1.castShadow = true;
+        leaves.position.y =
+            3 + i * 1.4;
 
-    group.add(leaves1);
-
-    const leaves2 = new THREE.Mesh(
-
-        new THREE.ConeGeometry(
-            1.4,
-            3.2,
-            12
-        ),
-
-        new THREE.MeshStandardMaterial({
-            color: 0x1b6e25
-        })
-    );
-
-    leaves2.position.y = 4.5;
-
-    leaves2.castShadow = true;
-
-    group.add(leaves2);
-
-    const leaves3 = new THREE.Mesh(
-
-        new THREE.ConeGeometry(
-            1,
-            2.5,
-            12
-        ),
-
-        new THREE.MeshStandardMaterial({
-            color: 0x228b2d
-        })
-    );
-
-    leaves3.position.y = 5.8;
-
-    leaves3.castShadow = true;
-
-    group.add(leaves3);
+        group.add(leaves);
+    }
 
     group.position.set(
-        (Math.random() - 0.5) * 24,
+        (Math.random()-0.5) * 24,
         0,
         z
     );
-
-    const scale =
-        0.8 + Math.random() * 0.8;
-
-    group.scale.set(
-        scale,
-        scale,
-        scale
-    );
-
-    group.rotation.y =
-        Math.random() * Math.PI;
 
     scene.add(group);
 
     obstacles.push(group);
 }
 
-for (let i = 0; i < 220; i++) {
+for(let i=0;i<220;i++){
 
     createTree(-i * 22);
 }
@@ -471,9 +536,7 @@ for (let i = 0; i < 220; i++) {
 
 const ramps = [];
 
-function createRamp(z) {
-
-    const rampGroup = new THREE.Group();
+function createRamp(z){
 
     const ramp = new THREE.Mesh(
 
@@ -484,69 +547,78 @@ function createRamp(z) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0x8b5a2b
+            color:0x8b5a2b
         })
     );
 
     ramp.rotation.x = 0.35;
 
-    ramp.castShadow = true;
-
-    rampGroup.add(ramp);
-
-    rampGroup.position.set(
-        (Math.random() - 0.5) * 18,
+    ramp.position.set(
+        (Math.random()-0.5) * 18,
         0.5,
         z
     );
 
-    scene.add(rampGroup);
+    scene.add(ramp);
 
-    ramps.push(rampGroup);
+    ramps.push(ramp);
 }
 
-for (let i = 0; i < 40; i++) {
+for(let i=0;i<40;i++){
 
     createRamp(-i * 120 - 80);
 }
 
 ////////////////////////////////////////////////////////////
-// LOW BARRIERS
+// ROCKS
 ////////////////////////////////////////////////////////////
 
 const barriers = [];
 
-function createLowBarrier(z) {
+function createBarrier(z){
 
-    const barrier = new THREE.Mesh(
+    const rock = new THREE.Mesh(
 
-        new THREE.BoxGeometry(
-            5,
-            2,
-            1
+        new THREE.DodecahedronGeometry(
+            1.8,
+            0
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0xcc2222
+            color:0x5c4635,
+            roughness:1,
+            flatShading:true
         })
     );
 
-    barrier.position.set(
-        (Math.random() - 0.5) * 16,
+    rock.scale.set(
+        1 + Math.random() * 1.2,
+        0.7 + Math.random() * 0.5,
+        1 + Math.random() * 0.8
+    );
+
+    rock.rotation.set(
+        Math.random(),
+        Math.random(),
+        Math.random()
+    );
+
+    rock.position.set(
+        (Math.random()-0.5) * 16,
         1,
         z
     );
 
-    barrier.castShadow = true;
+    rock.castShadow = true;
 
-    scene.add(barrier);
+    scene.add(rock);
 
-    barriers.push(barrier);
+    barriers.push(rock);
 }
 
-for (let i = 0; i < 35; i++) {
+for(let i=0;i<35;i++){
 
-    createLowBarrier(-i * 150 - 120);
+    createBarrier(-i * 150 - 120);
 }
 
 ////////////////////////////////////////////////////////////
@@ -555,7 +627,7 @@ for (let i = 0; i < 35; i++) {
 
 const coins = [];
 
-function createCoin(z) {
+function createCoin(z){
 
     const coin = new THREE.Mesh(
 
@@ -567,15 +639,15 @@ function createCoin(z) {
         ),
 
         new THREE.MeshStandardMaterial({
-            color: 0xffd700,
-            emissive: 0xaa8800
+            color:0xffd700,
+            emissive:0xaa8800
         })
     );
 
     coin.rotation.x = Math.PI / 2;
 
     coin.position.set(
-        (Math.random() - 0.5) * 18,
+        (Math.random()-0.5) * 18,
         1.4,
         z
     );
@@ -585,49 +657,10 @@ function createCoin(z) {
     coins.push(coin);
 }
 
-for (let i = 0; i < 120; i++) {
+for(let i=0;i<120;i++){
 
     createCoin(-i * 28 - 15);
 }
-
-////////////////////////////////////////////////////////////
-// SNOW PARTICLES
-////////////////////////////////////////////////////////////
-
-const snowGeo = new THREE.BufferGeometry();
-
-const snowVerts = [];
-
-for (let i = 0; i < 4000; i++) {
-
-    snowVerts.push(
-        (Math.random() - 0.5) * 120,
-        Math.random() * 35,
-        (Math.random() - 0.5) * 220
-    );
-}
-
-snowGeo.setAttribute(
-    'position',
-    new THREE.Float32BufferAttribute(
-        snowVerts,
-        3
-    )
-);
-
-const snow = new THREE.Points(
-
-    snowGeo,
-
-    new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 0.12,
-        transparent: true,
-        opacity: 0.9
-    })
-);
-
-scene.add(snow);
 
 ////////////////////////////////////////////////////////////
 // CONTROLS
@@ -635,24 +668,27 @@ scene.add(snow);
 
 const keys = {};
 
-window.addEventListener('keydown', e => {
+window.addEventListener('keydown',e=>{
 
     keys[e.key.toLowerCase()] = true;
 
-    if (
+    if(
         e.code === 'Space' &&
         player.grounded &&
         playing &&
         !player.crashing
-    ) {
+    ){
 
         player.vy = 0.32;
+
+        jumpSound.currentTime = 0;
+        jumpSound.play();
 
         player.grounded = false;
     }
 });
 
-window.addEventListener('keyup', e => {
+window.addEventListener('keyup',e=>{
 
     keys[e.key.toLowerCase()] = false;
 });
@@ -671,124 +707,84 @@ const startBtn =
     document.getElementById('startBtn');
 
 let score = 0;
-
 let playing = false;
 
 ////////////////////////////////////////////////////////////
 // START
 ////////////////////////////////////////////////////////////
 
-startBtn.onclick = () => {
+startBtn.onclick = async ()=>{
 
     resetGame();
 
     playing = true;
 
     menu.style.display = 'none';
+
+    try{
+
+        windSound.currentTime = 0;
+        await windSound.play();
+
+    }catch(e){}
 };
 
 ////////////////////////////////////////////////////////////
-// RESET GAME
+// RESET
 ////////////////////////////////////////////////////////////
 
-function resetGame() {
-
-    ////////////////////////////////////////////////////////////
-    // PLAYER RESET
-    ////////////////////////////////////////////////////////////
+function resetGame(){
 
     score = 0;
 
     player.x = 0;
     player.y = 0;
-
     player.speed = 0.9;
-
     player.vy = 0;
-
     player.turn = 0;
-
     player.grounded = true;
-
     player.crashing = false;
-
     player.crashTimer = 0;
 
-    ////////////////////////////////////////////////////////////
-    // CAMERA RESET
-    ////////////////////////////////////////////////////////////
-
-    camera.rotation.x = 0;
-    camera.rotation.y = 0;
-    camera.rotation.z = 0;
-
-    camera.position.set(
-        0,
-        2.3,
-        10
-    );
-
-    ////////////////////////////////////////////////////////////
-    // SAFE SPAWN DISTANCE
-    ////////////////////////////////////////////////////////////
+    camera.rotation.set(0,0,0);
 
     const safeDistance = -120;
 
-    ////////////////////////////////////////////////////////////
-    // RESET TREES
-    ////////////////////////////////////////////////////////////
-
-    obstacles.forEach((tree, i) => {
+    obstacles.forEach((tree,i)=>{
 
         tree.position.z =
             safeDistance - (i * 22);
 
         tree.position.x =
-            (Math.random() - 0.5) * 24;
+            (Math.random()-0.5) * 24;
     });
 
-    ////////////////////////////////////////////////////////////
-    // RESET RAMPS
-    ////////////////////////////////////////////////////////////
-
-    ramps.forEach((ramp, i) => {
+    ramps.forEach((ramp,i)=>{
 
         ramp.position.z =
             safeDistance - 200 - (i * 120);
 
         ramp.position.x =
-            (Math.random() - 0.5) * 18;
+            (Math.random()-0.5) * 18;
     });
 
-    ////////////////////////////////////////////////////////////
-    // RESET BARRIERS
-    ////////////////////////////////////////////////////////////
-
-    barriers.forEach((barrier, i) => {
+    barriers.forEach((barrier,i)=>{
 
         barrier.position.z =
             safeDistance - 350 - (i * 150);
 
         barrier.position.x =
-            (Math.random() - 0.5) * 16;
+            (Math.random()-0.5) * 16;
     });
 
-    ////////////////////////////////////////////////////////////
-    // RESET COINS
-    ////////////////////////////////////////////////////////////
-
-    coins.forEach((coin, i) => {
+    coins.forEach((coin,i)=>{
 
         coin.position.z =
             safeDistance - 50 - (i * 28);
 
         coin.position.x =
-            (Math.random() - 0.5) * 18;
+            (Math.random()-0.5) * 18;
     });
-
-    ////////////////////////////////////////////////////////////
-    // RESET TITLE
-    ////////////////////////////////////////////////////////////
 
     menu.querySelector('h1').textContent =
         'Snow Rider 3D';
@@ -798,20 +794,25 @@ function resetGame() {
 // CRASH
 ////////////////////////////////////////////////////////////
 
-function crash() {
+function crash(){
 
-    if (player.crashing) return;
+    if(player.crashing) return;
 
     player.crashing = true;
 
     player.crashTimer = 80;
+
+    crashSound.currentTime = 0;
+    crashSound.play();
+
+    windSound.pause();
 }
 
 ////////////////////////////////////////////////////////////
 // GAME OVER
 ////////////////////////////////////////////////////////////
 
-function gameOver() {
+function gameOver(){
 
     playing = false;
 
@@ -825,17 +826,13 @@ function gameOver() {
 // ANIMATE
 ////////////////////////////////////////////////////////////
 
-function animate() {
+function animate(){
 
     requestAnimationFrame(animate);
 
-    if (playing) {
+    if(playing){
 
-        ////////////////////////////////////////////////////////////
-        // CRASH ANIMATION
-        ////////////////////////////////////////////////////////////
-
-        if (player.crashing) {
+        if(player.crashing){
 
             player.crashTimer--;
 
@@ -844,14 +841,14 @@ function animate() {
 
             camera.position.y -= 0.03;
 
-            if (player.crashTimer <= 0) {
+            if(player.crashTimer <= 0){
 
                 player.crashing = false;
 
                 gameOver();
             }
 
-            renderer.render(scene, camera);
+            renderer.render(scene,camera);
 
             return;
         }
@@ -860,22 +857,16 @@ function animate() {
         // MOVEMENT
         ////////////////////////////////////////////////////////////
 
-        const targetTurn = (() => {
+        const targetTurn = (()=>{
 
-            if (
-                keys['a'] ||
-                keys['arrowleft']
-            ) {
+            if(keys['a'] || keys['arrowleft']){
 
                 player.x -= 0.22;
 
                 return 0.32;
             }
 
-            if (
-                keys['d'] ||
-                keys['arrowright']
-            ) {
+            if(keys['d'] || keys['arrowright']){
 
                 player.x += 0.22;
 
@@ -886,29 +877,25 @@ function animate() {
 
         })();
 
-        player.turn += (
-            targetTurn - player.turn
-        ) * 0.12;
+        player.turn +=
+            (targetTurn - player.turn) * 0.12;
 
         player.x = Math.max(
             -12,
-            Math.min(12, player.x)
+            Math.min(12,player.x)
         );
 
         ////////////////////////////////////////////////////////////
-        // JUMPING
+        // JUMP
         ////////////////////////////////////////////////////////////
 
         player.vy -= 0.018;
-
         player.y += player.vy;
 
-        if (player.y <= 0) {
+        if(player.y <= 0){
 
             player.y = 0;
-
             player.vy = 0;
-
             player.grounded = true;
         }
 
@@ -916,24 +903,14 @@ function animate() {
         // CAMERA
         ////////////////////////////////////////////////////////////
 
-        player.sway += (
-            (player.x * 0.04) -
-            player.sway
-        ) * 0.08;
-
         camera.position.set(
             player.x,
             2.3 + player.y,
             10
         );
 
-        camera.rotation.z = -player.sway;
-
-        camera.rotation.y =
-            player.turn * 0.35;
-
         camera.lookAt(
-            player.x + player.turn * 6,
+            player.x + player.turn * 12,
             1.2 + player.y,
             -30
         );
@@ -942,41 +919,81 @@ function animate() {
         // SKI ANIMATION
         ////////////////////////////////////////////////////////////
 
-        skiLeft.rotation.y =
-            player.turn * 1.2;
+        skiLeft.rotation.y +=
+            ((player.turn * 1.8) - skiLeft.rotation.y)
+            * 0.18;
 
-        skiRight.rotation.y =
-            player.turn * 1.2;
+        skiRight.rotation.y +=
+            ((player.turn * 1.8) - skiRight.rotation.y)
+            * 0.18;
 
         skiLeft.rotation.z =
-            player.turn * 0.3;
+            -player.turn * 0.7;
 
         skiRight.rotation.z =
-            player.turn * 0.3;
+            -player.turn * 0.7;
 
-        const skiBob =
-            Math.sin(Date.now() * 0.008) * 0.025;
+        skiLeft.position.x =
+            -0.3 - player.turn * 0.55;
 
-        skiLeft.position.y =
-            -0.55 + skiBob;
+        skiRight.position.x =
+            0.3 - player.turn * 0.55;
 
-        skiRight.position.y =
-            -0.55 - skiBob;
+        camera.rotation.z +=
+            player.turn * 0.18;
+
+        ////////////////////////////////////////////////////////////
+        // DRIFT SNOW
+        ////////////////////////////////////////////////////////////
+
+        const driftAmount =
+            Math.abs(player.turn);
+
+        if(driftAmount > 0.12){
+
+            emitSnow();
+        }
+
+        driftSnow.forEach(p=>{
+
+            if(p.life > 0){
+
+                p.life -= 0.025;
+
+                p.mesh.position.x += p.vx;
+                p.mesh.position.y += p.vy;
+                p.mesh.position.z += p.vz;
+
+                p.vy -= 0.002;
+
+                p.mesh.scale.setScalar(
+                    1.5 + (1 - p.life) * 4.5
+                );
+
+                p.mesh.material.opacity =
+                    p.life * 0.9;
+
+                if(p.life <= 0){
+
+                    p.mesh.visible = false;
+                }
+            }
+        });
 
         ////////////////////////////////////////////////////////////
         // TREES
         ////////////////////////////////////////////////////////////
 
-        obstacles.forEach(tree => {
+        obstacles.forEach(tree=>{
 
             tree.position.z += player.speed;
 
-            if (tree.position.z > 20) {
+            if(tree.position.z > 20){
 
                 tree.position.z = -4800;
 
                 tree.position.x =
-                    (Math.random() - 0.5) * 24;
+                    (Math.random()-0.5) * 24;
             }
 
             const dx =
@@ -985,10 +1002,10 @@ function animate() {
             const dz =
                 tree.position.z - player.z;
 
-            if (
+            if(
                 Math.abs(dx) < 1.5 &&
                 Math.abs(dz) < 2
-            ) {
+            ){
 
                 crash();
             }
@@ -998,16 +1015,16 @@ function animate() {
         // RAMPS
         ////////////////////////////////////////////////////////////
 
-        ramps.forEach(ramp => {
+        ramps.forEach(ramp=>{
 
             ramp.position.z += player.speed;
 
-            if (ramp.position.z > 20) {
+            if(ramp.position.z > 20){
 
                 ramp.position.z = -5000;
 
                 ramp.position.x =
-                    (Math.random() - 0.5) * 18;
+                    (Math.random()-0.5) * 18;
             }
 
             const dx =
@@ -1016,32 +1033,31 @@ function animate() {
             const dz =
                 ramp.position.z - player.z;
 
-            if (
+            if(
                 Math.abs(dx) < 2 &&
                 Math.abs(dz) < 3 &&
                 player.grounded
-            ) {
+            ){
 
                 player.vy = 0.42;
-
                 player.grounded = false;
             }
         });
 
         ////////////////////////////////////////////////////////////
-        // BARRIERS
+        // ROCKS
         ////////////////////////////////////////////////////////////
 
-        barriers.forEach(barrier => {
+        barriers.forEach(barrier=>{
 
             barrier.position.z += player.speed;
 
-            if (barrier.position.z > 20) {
+            if(barrier.position.z > 20){
 
                 barrier.position.z = -5200;
 
                 barrier.position.x =
-                    (Math.random() - 0.5) * 16;
+                    (Math.random()-0.5) * 16;
             }
 
             const dx =
@@ -1050,12 +1066,12 @@ function animate() {
             const dz =
                 barrier.position.z - player.z;
 
-            if (
+            if(
                 Math.abs(dx) < 2.8 &&
                 Math.abs(dz) < 1.5
-            ) {
+            ){
 
-                if (player.y < 1.2) {
+                if(player.y < 1.2){
 
                     crash();
                 }
@@ -1066,18 +1082,18 @@ function animate() {
         // COINS
         ////////////////////////////////////////////////////////////
 
-        coins.forEach(coin => {
+        coins.forEach(coin=>{
 
             coin.rotation.z += 0.08;
 
             coin.position.z += player.speed;
 
-            if (coin.position.z > 20) {
+            if(coin.position.z > 20){
 
                 coin.position.z = -4500;
 
                 coin.position.x =
-                    (Math.random() - 0.5) * 18;
+                    (Math.random()-0.5) * 18;
             }
 
             const dx =
@@ -1086,38 +1102,25 @@ function animate() {
             const dz =
                 coin.position.z - player.z;
 
-            if (
+            if(
                 Math.abs(dx) < 1.2 &&
                 Math.abs(dz) < 2
-            ) {
+            ){
 
                 score += 25;
+
+                coinSound.currentTime = 0;
+                coinSound.play();
 
                 coin.position.z = -4500;
             }
         });
 
         ////////////////////////////////////////////////////////////
-        // SNOW
-        ////////////////////////////////////////////////////////////
-
-        snow.position.z +=
-            player.speed * 0.25;
-
-        if (snow.position.z > 50) {
-
-            snow.position.z = 0;
-        }
-
-        ////////////////////////////////////////////////////////////
-        // SPEED
+        // SCORE
         ////////////////////////////////////////////////////////////
 
         player.speed += 0.00012;
-
-        ////////////////////////////////////////////////////////////
-        // SCORE
-        ////////////////////////////////////////////////////////////
 
         score += 0.2;
 
@@ -1125,7 +1128,7 @@ function animate() {
             Math.floor(score);
     }
 
-    renderer.render(scene, camera);
+    renderer.render(scene,camera);
 }
 
 animate();
@@ -1134,7 +1137,7 @@ animate();
 // RESIZE
 ////////////////////////////////////////////////////////////
 
-window.addEventListener('resize', () => {
+window.addEventListener('resize',()=>{
 
     camera.aspect =
         window.innerWidth /
